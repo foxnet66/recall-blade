@@ -180,6 +180,36 @@
     box-shadow: 0 0 0 4px var(--yellow-pale);
   }
 
+  /* Hide test */
+  .hide-test-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+  .hide-test-line {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.55rem, 4vw, 2.35rem);
+    line-height: 1.28;
+    padding: 1rem 1.25rem;
+    text-align: left;
+    transition: opacity 1s ease, background 0.2s ease;
+  }
+  .hide-test-line:last-child { border-bottom: 0; }
+  .hide-test-line:hover,
+  .hide-test-line.hidden {
+    opacity: 0.08;
+    background: var(--surface2);
+  }
+
   /* Listening */
   .listen-panel {
     background: var(--surface);
@@ -543,6 +573,7 @@
     .stanza { padding: 1.25rem; }
     .stanza-line { font-size: clamp(1.38rem, 6.3vw, 1.62rem); line-height: 1.38; }
     .poem-container,
+    .hide-test-list,
     .listen-panel,
     .memory-frame,
     .quiz-card,
@@ -574,6 +605,7 @@
   <div class="tab-bar">
     <button class="tab active" onclick="switchTab('poem')">Poem</button>
     <button class="tab" onclick="switchTab('flash')">Recall</button>
+    <button class="tab" onclick="switchTab('hide')">Hide Test</button>
     <button class="tab" onclick="switchTab('cloze')">Cloze</button>
     <button class="tab" onclick="switchTab('quiz')">Quiz</button>
     <button class="tab" onclick="switchTab('weak')">Weak Lines</button>
@@ -676,6 +708,18 @@
       <button class="btn easy" onclick="rate('easy')">Got it</button>
     </div>
     <p class="helper-text" id="recall-help">Sequential mode keeps the poem in order. Use Adaptive later for weak lines.</p>
+  </div>
+
+  <!-- HIDE TEST TAB -->
+  <div id="sec-hide" class="section">
+    <div class="memory-frame" style="margin-bottom:1rem;">
+      <strong>Dynamic Hide</strong>
+      Move over a line to fade it out in one second. Say it from memory before moving to the next line.
+    </div>
+    <div class="cloze-controls" style="margin-bottom:1rem;">
+      <button class="btn" onclick="resetHideTest()">Show all lines</button>
+    </div>
+    <div class="hide-test-list" id="hide-test-list"></div>
   </div>
 
   <!-- CLOZE TAB -->
@@ -865,15 +909,38 @@ function saveScores() {
 }
 
 function switchTab(name) {
-  const tabs = ['poem','flash','cloze','quiz','weak','stats'];
+  const tabs = ['poem','flash','hide','cloze','quiz','weak','stats'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===name));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-'+name).classList.add('active');
   if(name==='flash') initFlash();
+  if(name==='hide') renderHideTest();
   if(name==='cloze') initCloze();
   if(name==='quiz') initQuiz();
   if(name==='weak') renderWeakLines();
   if(name==='stats') renderStats();
+}
+
+// ---- HIDE TEST ----
+function renderHideTest() {
+  const list = document.getElementById('hide-test-list');
+  if(!list || list.dataset.ready === 'true') return;
+  list.innerHTML = LINES.map((line, i) => (
+    `<button class="hide-test-line" type="button" data-i="${i}" onpointerenter="hideTestLine(this)" onclick="toggleHideTestLine(this)">${esc(line)}</button>`
+  )).join('');
+  list.dataset.ready = 'true';
+}
+
+function hideTestLine(el) {
+  el.classList.add('hidden');
+}
+
+function toggleHideTestLine(el) {
+  el.classList.toggle('hidden');
+}
+
+function resetHideTest() {
+  document.querySelectorAll('.hide-test-line.hidden').forEach(el => el.classList.remove('hidden'));
 }
 
 // ---- LISTENING ----
