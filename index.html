@@ -204,9 +204,8 @@
     transition: opacity 1s ease, background 0.2s ease;
   }
   .hide-test-line:last-child { border-bottom: 0; }
-  .hide-test-line:hover,
   .hide-test-line.hidden {
-    opacity: 0.08;
+    opacity: 0;
     background: var(--surface2);
   }
 
@@ -714,7 +713,7 @@
   <div id="sec-hide" class="section">
     <div class="memory-frame" style="margin-bottom:1rem;">
       <strong>Dynamic Hide</strong>
-      Move over a line to fade it out in one second. Say it from memory before moving to the next line.
+      Move over a line to hide it completely. Move over the same line again to show it.
     </div>
     <div class="cloze-controls" style="margin-bottom:1rem;">
       <button class="btn" onclick="resetHideTest()">Show all lines</button>
@@ -926,13 +925,9 @@ function renderHideTest() {
   const list = document.getElementById('hide-test-list');
   if(!list || list.dataset.ready === 'true') return;
   list.innerHTML = LINES.map((line, i) => (
-    `<button class="hide-test-line" type="button" data-i="${i}" onpointerenter="hideTestLine(this)" onclick="toggleHideTestLine(this)">${esc(line)}</button>`
+    `<button class="hide-test-line" type="button" data-i="${i}" onpointerenter="toggleHideTestLine(this)" onclick="toggleHideTestLine(this)">${esc(line)}</button>`
   )).join('');
   list.dataset.ready = 'true';
-}
-
-function hideTestLine(el) {
-  el.classList.add('hidden');
 }
 
 function toggleHideTestLine(el) {
