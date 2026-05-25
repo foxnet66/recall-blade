@@ -195,7 +195,7 @@
     flex-wrap: wrap;
     margin-bottom: 0.8rem;
   }
-  .speed-select {
+  .speech-select {
     border: 1px solid var(--border2);
     border-radius: 8px;
     background: transparent;
@@ -203,6 +203,7 @@
     font-family: 'DM Sans', sans-serif;
     font-size: 0.94rem;
     padding: 12px 14px;
+    max-width: 240px;
   }
   .subtitle-box {
     min-height: 2.2rem;
@@ -544,9 +545,12 @@
         <button class="btn" id="pause-speech-btn" onclick="toggleSpeechPause()">Pause</button>
         <button class="btn" onclick="repeatSpeechLine()">Repeat line</button>
         <button class="btn" onclick="stopSpeech()">Stop</button>
-        <select class="speed-select" id="speech-rate" onchange="setSpeechRate(this.value)" aria-label="Speech speed">
+        <select class="speech-select" id="speech-voice" onchange="setSpeechVoice(this.value)" aria-label="Speech voice">
+          <option value="">Best voice</option>
+        </select>
+        <select class="speech-select" id="speech-rate" onchange="setSpeechRate(this.value)" aria-label="Speech speed">
           <option value="0.75">Slow</option>
-          <option value="0.92" selected>Normal</option>
+          <option value="0.86" selected>Normal</option>
           <option value="1.12">Fast</option>
         </select>
       </div>
@@ -723,7 +727,8 @@ let sessions = 0;
 let clozeIdx = 0;
 let clozeData = [];
 let clozeCorrect = 0, clozeTotal = 0;
-let speechRate = 0.92;
+let speechRate = 0.86;
+let selectedVoiceURI = '';
 let speechLineIdx = 0;
 let poemSpeaking = false;
 let lastSpokenLine = 0;
@@ -761,18 +766,58 @@ function setupPoemLineData() {
 }
 
 function setSpeechRate(value) {
-  speechRate = Number(value) || 0.92;
+  speechRate = Number(value) || 0.86;
+}
+
+function setSpeechVoice(value) {
+  selectedVoiceURI = value;
 }
 
 function cleanForSpeech(line) {
   return line.replace(/—/g, ', ');
 }
 
+function scoreVoice(voice) {
+  const name = voice.name.toLowerCase();
+  const lang = (voice.lang || '').toLowerCase();
+  let score = 0;
+  if(lang === 'en-gb') score += 80;
+  else if(lang.startsWith('en-')) score += 50;
+  if(name.includes('premium')) score += 35;
+  if(name.includes('enhanced')) score += 30;
+  if(name.includes('natural')) score += 25;
+  if(name.includes('samantha') || name.includes('daniel') || name.includes('serena')) score += 18;
+  if(name.includes('google uk')) score += 16;
+  if(name.includes('compact')) score -= 25;
+  return score;
+}
+
+function getEnglishVoices() {
+  return window.speechSynthesis.getVoices()
+    .filter(v => v.lang && v.lang.toLowerCase().startsWith('en'))
+    .sort((a, b) => scoreVoice(b) - scoreVoice(a));
+}
+
 function getEnglishVoice() {
-  const voices = window.speechSynthesis.getVoices();
-  return voices.find(v => v.lang === 'en-GB')
-    || voices.find(v => v.lang && v.lang.startsWith('en'))
-    || null;
+  const voices = getEnglishVoices();
+  if(selectedVoiceURI) {
+    const selected = voices.find(v => v.voiceURI === selectedVoiceURI);
+    if(selected) return selected;
+  }
+  return voices[0] || null;
+}
+
+function populateVoiceSelect() {
+  if(!supportsSpeech()) return;
+  const select = document.getElementById('speech-voice');
+  if(!select) return;
+  const voices = getEnglishVoices();
+  const current = selectedVoiceURI || select.value;
+  select.innerHTML = '<option value="">Best voice</option>' + voices.map(v => {
+    const label = `${v.name} (${v.lang})`;
+    return `<option value="${esc(v.voiceURI)}">${esc(label)}</option>`;
+  }).join('');
+  select.value = voices.some(v => v.voiceURI === current) ? current : '';
 }
 
 function clearLineHighlight() {
@@ -802,7 +847,7 @@ function speakText(text, onEnd) {
   const utterance = new SpeechSynthesisUtterance(cleanForSpeech(text));
   utterance.lang = 'en-GB';
   utterance.rate = speechRate;
-  utterance.pitch = 1;
+  utterance.pitch = 0.92;
   const voice = getEnglishVoice();
   if(voice) utterance.voice = voice;
   utterance.onend = () => {
@@ -1067,6 +1112,8 @@ function renderStats() {
 
 // init
 setupPoemLineData();
+populateVoiceSelect();
+if(supportsSpeech()) window.speechSynthesis.onvoiceschanged = populateVoiceSelect;
 renderStats();
 buildQueue();
 </script>
