@@ -367,6 +367,64 @@
   }
   .cloze-controls { display: flex; gap: 8px; flex-wrap: wrap; }
 
+  /* Quiz */
+  .quiz-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .quiz-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 1rem;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+  .quiz-type {
+    color: var(--accent);
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .quiz-context {
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.55;
+    margin-bottom: 1rem;
+  }
+  .quiz-question {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.65rem, 4.6vw, 2.7rem);
+    line-height: 1.28;
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+  .quiz-input {
+    width: 100%;
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    padding: 14px;
+    outline: none;
+    margin-bottom: 0.85rem;
+  }
+  .quiz-input:focus { border-color: rgba(35,91,145,0.45); }
+  .quiz-feedback {
+    min-height: 2.5rem;
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+  .quiz-feedback.ok { color: var(--green); }
+  .quiz-feedback.no { color: var(--danger); }
+
   /* Stats */
   .stats-grid {
     display: grid;
@@ -503,6 +561,7 @@
     .poem-container,
     .listen-panel,
     .memory-frame,
+    .quiz-card,
     .card-scene,
     .cloze-card,
     .plan-box,
@@ -533,6 +592,7 @@
     <button class="tab active" onclick="switchTab('poem')">Poem</button>
     <button class="tab" onclick="switchTab('flash')">Recall</button>
     <button class="tab" onclick="switchTab('cloze')">Cloze</button>
+    <button class="tab" onclick="switchTab('quiz')">Quiz</button>
     <button class="tab" onclick="switchTab('stats')">Progress</button>
     <button class="tab" onclick="switchTab('methods')">Method</button>
   </div>
@@ -649,6 +709,26 @@
     <p class="helper-text" style="text-align:left;">Fill the blue gaps. Capitalisation does not matter. Press Enter to check.</p>
   </div>
 
+  <!-- QUIZ TAB -->
+  <div id="sec-quiz" class="section">
+    <div class="quiz-card">
+      <div class="quiz-top">
+        <span class="quiz-type" id="quiz-type">Context</span>
+        <span id="quiz-count">1 / 1</span>
+      </div>
+      <div class="quiz-context" id="quiz-context"></div>
+      <div class="quiz-question" id="quiz-question"></div>
+      <input class="quiz-input" id="quiz-answer" placeholder="Type your answer" autocomplete="off" spellcheck="false">
+      <div class="quiz-feedback" id="quiz-feedback"></div>
+    </div>
+    <div class="cloze-controls" style="margin-bottom:1rem;">
+      <button class="btn primary" onclick="checkQuiz()">Check</button>
+      <button class="btn" onclick="revealQuiz()">Reveal</button>
+      <button class="btn" onclick="nextQuiz()">Next</button>
+    </div>
+    <p class="helper-text" style="text-align:left;">Use the context to recall exact wording, speaker, image, or meaning.</p>
+  </div>
+
   <!-- STATS TAB -->
   <div id="sec-stats" class="section">
     <div class="stats-grid">
@@ -717,6 +797,79 @@ const LINES = [
   "deepest sorrow."
 ];
 
+const QUIZ_ITEMS = [
+  {
+    type: 'Context Fill',
+    context: 'Opening image: Picasso is described as using a violent tool instead of an artist\'s tool.',
+    question: 'They say that instead of a ______',
+    answers: ['brush'],
+    reveal: 'brush'
+  },
+  {
+    type: 'Context Fill',
+    context: 'This line turns painting into an image of cutting and damage.',
+    question: 'he used a ______ on me—',
+    answers: ['knife'],
+    reveal: 'knife'
+  },
+  {
+    type: 'Next Line',
+    context: 'After "he used a knife on me—", recall the next short line.',
+    question: 'What comes next?',
+    answers: ['a savage geometry', 'savage geometry'],
+    reveal: 'a savage geometry.'
+  },
+  {
+    type: 'Colour Image',
+    context: 'Green is rejected as a hopeful natural image and replaced by an image of bodily decay.',
+    question: 'Not the green of new shoots, / But the ghastly green of ______.',
+    answers: ['gangrene'],
+    reveal: 'gangrene'
+  },
+  {
+    type: 'Colour Image',
+    context: 'Yellow is not cheerful or sunny; it becomes linked to sickness and war.',
+    question: 'but the sickly hues / of this war\'s ______.',
+    answers: ['putrefaction'],
+    reveal: 'putrefaction'
+  },
+  {
+    type: 'Colour Image',
+    context: 'Blue is not sky or sea; it is associated with music and grief.',
+    question: 'but the blues of the singer\'s / deepest ______.',
+    answers: ['sorrow'],
+    reveal: 'sorrow'
+  },
+  {
+    type: 'Pattern',
+    context: 'Each colour stanza begins with the same three-word pattern.',
+    question: 'Complete the pattern: Green ______ me—',
+    answers: ['knows'],
+    reveal: 'knows'
+  },
+  {
+    type: 'Meaning',
+    context: 'The repeated "Not... but..." structure is central to the colour stanzas.',
+    question: 'What contrast does the structure create?',
+    answers: ['hope and suffering', 'beauty and suffering', 'positive and negative', 'natural beauty and pain', 'hopeful image and war image'],
+    reveal: 'It contrasts hopeful or beautiful images with war, decay, and sorrow.'
+  },
+  {
+    type: 'Speaker',
+    context: 'The poem gives voice to the woman represented in Picasso\'s Weeping Woman.',
+    question: 'Whose voice does the poem use?',
+    answers: ['dora maar', 'maar'],
+    reveal: 'Dora Maar'
+  },
+  {
+    type: 'Author',
+    context: 'This poem is from Picasso, I Want My Face Back.',
+    question: 'Who wrote the poem?',
+    answers: ['grace nichols', 'nichols'],
+    reveal: 'Grace Nichols'
+  }
+];
+
 let scores = {};
 let queue = [];
 let cardIdx = 0;
@@ -727,6 +880,8 @@ let sessions = 0;
 let clozeIdx = 0;
 let clozeData = [];
 let clozeCorrect = 0, clozeTotal = 0;
+let quizIdx = 0;
+let quizOrder = [];
 let speechRate = 0.86;
 let selectedVoiceURI = '';
 let speechLineIdx = 0;
@@ -745,12 +900,13 @@ function saveScores() {
 }
 
 function switchTab(name) {
-  const tabs = ['poem','flash','cloze','stats','methods'];
+  const tabs = ['poem','flash','cloze','quiz','stats','methods'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===name));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-'+name).classList.add('active');
   if(name==='flash') initFlash();
   if(name==='cloze') initCloze();
+  if(name==='quiz') initQuiz();
   if(name==='stats') renderStats();
 }
 
@@ -1086,6 +1242,84 @@ function revealCloze() {
 function nextCloze() {
   clozeIdx = Math.floor(Math.random()*LINES.length);
   renderCloze();
+}
+
+// ---- QUIZ ----
+function normalizeAnswer(value) {
+  return value
+    .toLowerCase()
+    .replace(/[’']/g, "'")
+    .replace(/[^a-z0-9\s']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function shuffleQuiz() {
+  quizOrder = QUIZ_ITEMS.map((_, i) => i);
+  for(let i=quizOrder.length-1;i>0;i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [quizOrder[i],quizOrder[j]] = [quizOrder[j],quizOrder[i]];
+  }
+}
+
+function initQuiz() {
+  if(!quizOrder.length) shuffleQuiz();
+  quizIdx = quizIdx % quizOrder.length;
+  renderQuiz();
+}
+
+function currentQuiz() {
+  if(!quizOrder.length) shuffleQuiz();
+  return QUIZ_ITEMS[quizOrder[quizIdx % quizOrder.length]];
+}
+
+function renderQuiz() {
+  const item = currentQuiz();
+  document.getElementById('quiz-type').textContent = item.type;
+  document.getElementById('quiz-count').textContent = `${(quizIdx % quizOrder.length) + 1} / ${quizOrder.length}`;
+  document.getElementById('quiz-context').textContent = item.context;
+  document.getElementById('quiz-question').textContent = item.question;
+  const input = document.getElementById('quiz-answer');
+  input.value = '';
+  input.className = 'quiz-input';
+  document.getElementById('quiz-feedback').className = 'quiz-feedback';
+  document.getElementById('quiz-feedback').textContent = '';
+  input.onkeydown = e => { if(e.key === 'Enter') checkQuiz(); };
+  input.focus();
+}
+
+function checkQuiz() {
+  const item = currentQuiz();
+  const input = document.getElementById('quiz-answer');
+  const answer = normalizeAnswer(input.value);
+  const ok = item.answers.some(a => normalizeAnswer(a) === answer);
+  const fb = document.getElementById('quiz-feedback');
+  if(!answer) {
+    fb.className = 'quiz-feedback no';
+    fb.textContent = 'Type an answer first.';
+    return;
+  }
+  if(ok) {
+    fb.className = 'quiz-feedback ok';
+    fb.textContent = 'Correct. Now say the full line aloud.';
+  } else {
+    fb.className = 'quiz-feedback no';
+    fb.textContent = `Not yet. Answer: ${item.reveal}`;
+  }
+}
+
+function revealQuiz() {
+  const item = currentQuiz();
+  document.getElementById('quiz-answer').value = item.reveal;
+  const fb = document.getElementById('quiz-feedback');
+  fb.className = 'quiz-feedback';
+  fb.textContent = 'Read it, cover it, then try the next one.';
+}
+
+function nextQuiz() {
+  quizIdx++;
+  if(quizIdx % QUIZ_ITEMS.length === 0) shuffleQuiz();
+  renderQuiz();
 }
 
 // ---- STATS ----
