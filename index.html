@@ -175,6 +175,41 @@
     font-style: italic;
     opacity: 0.7;
   }
+  .stanza-line.listening {
+    background: var(--yellow-pale);
+    box-shadow: 0 0 0 4px var(--yellow-pale);
+  }
+
+  /* Listening */
+  .listen-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  .listen-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 0.8rem;
+  }
+  .speed-select {
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.94rem;
+    padding: 12px 14px;
+  }
+  .subtitle-box {
+    min-height: 2.2rem;
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.45;
+  }
 
   /* Flashcard */
   .card-progress-row {
@@ -224,6 +259,10 @@
   }
 
   .card-scene { perspective: 1200px; height: min(46vh, 360px); min-height: 260px; margin-bottom: 1.5rem; cursor: pointer; }
+  .card-scene.listening .card-face {
+    border-color: rgba(155,107,0,0.45);
+    box-shadow: 0 0 0 4px rgba(243,223,155,0.75);
+  }
   .card-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.55s cubic-bezier(0.4,0,0.2,1); }
   .card-scene.flipped .card-inner { transform: rotateY(180deg); }
   .card-face {
@@ -461,6 +500,7 @@
     .stanza { padding: 1.25rem; }
     .stanza-line { font-size: clamp(1.38rem, 6.3vw, 1.62rem); line-height: 1.38; }
     .poem-container,
+    .listen-panel,
     .memory-frame,
     .card-scene,
     .cloze-card,
@@ -498,6 +538,20 @@
 
   <!-- POEM TAB -->
   <div id="sec-poem" class="section active">
+    <div class="listen-panel">
+      <div class="listen-actions">
+        <button class="btn primary" onclick="startPoemAudio()">Listen</button>
+        <button class="btn" id="pause-speech-btn" onclick="toggleSpeechPause()">Pause</button>
+        <button class="btn" onclick="repeatSpeechLine()">Repeat line</button>
+        <button class="btn" onclick="stopSpeech()">Stop</button>
+        <select class="speed-select" id="speech-rate" onchange="setSpeechRate(this.value)" aria-label="Speech speed">
+          <option value="0.75">Slow</option>
+          <option value="0.92" selected>Normal</option>
+          <option value="1.12">Fast</option>
+        </select>
+      </div>
+      <div class="subtitle-box" id="subtitle-text">Listen line by line, then repeat the words aloud.</div>
+    </div>
     <div class="poem-container">
       <div class="stanza intro">
         <div class="stanza-label">Opening</div>
@@ -569,6 +623,7 @@
       </div>
     </div>
     <div class="card-actions">
+      <button class="btn primary" onclick="speakCurrentCard()">Listen</button>
       <button class="btn hard" onclick="rate('hard')">Again</button>
       <button class="btn" onclick="nextCard()">Skip</button>
       <button class="btn easy" onclick="rate('easy')">Got it</button>
@@ -668,6 +723,11 @@ let sessions = 0;
 let clozeIdx = 0;
 let clozeData = [];
 let clozeCorrect = 0, clozeTotal = 0;
+let speechRate = 0.92;
+let speechLineIdx = 0;
+let poemSpeaking = false;
+let lastSpokenLine = 0;
+let speechToken = 0;
 
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -687,6 +747,132 @@ function switchTab(name) {
   if(name==='flash') initFlash();
   if(name==='cloze') initCloze();
   if(name==='stats') renderStats();
+}
+
+// ---- LISTENING ----
+function supportsSpeech() {
+  return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+}
+
+function setupPoemLineData() {
+  document.querySelectorAll('.stanza-line').forEach((el, i) => {
+    el.dataset.lineIndex = String(i);
+  });
+}
+
+function setSpeechRate(value) {
+  speechRate = Number(value) || 0.92;
+}
+
+function cleanForSpeech(line) {
+  return line.replace(/—/g, ', ');
+}
+
+function getEnglishVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  return voices.find(v => v.lang === 'en-GB')
+    || voices.find(v => v.lang && v.lang.startsWith('en'))
+    || null;
+}
+
+function clearLineHighlight() {
+  document.querySelectorAll('.stanza-line.listening').forEach(el => el.classList.remove('listening'));
+  document.getElementById('card-scene')?.classList.remove('listening');
+}
+
+function highlightLine(index) {
+  clearLineHighlight();
+  const el = document.querySelector(`.stanza-line[data-line-index="${index}"]`);
+  if(el) el.classList.add('listening');
+}
+
+function setSubtitle(text) {
+  const subtitle = document.getElementById('subtitle-text');
+  if(subtitle) subtitle.textContent = text;
+}
+
+function speakText(text, onEnd) {
+  if(!supportsSpeech()) {
+    setSubtitle('Speech is not available in this browser.');
+    return;
+  }
+  speechToken++;
+  const token = speechToken;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(cleanForSpeech(text));
+  utterance.lang = 'en-GB';
+  utterance.rate = speechRate;
+  utterance.pitch = 1;
+  const voice = getEnglishVoice();
+  if(voice) utterance.voice = voice;
+  utterance.onend = () => {
+    if(token !== speechToken) return;
+    document.getElementById('card-scene')?.classList.remove('listening');
+    if(typeof onEnd === 'function') onEnd();
+  };
+  utterance.onerror = () => {
+    if(token !== speechToken) return;
+    poemSpeaking = false;
+    setSubtitle('Speech stopped.');
+    clearLineHighlight();
+  };
+  window.speechSynthesis.speak(utterance);
+}
+
+function speakPoemLine() {
+  if(!poemSpeaking) return;
+  if(speechLineIdx >= LINES.length) {
+    stopSpeech('Finished. Try saying the poem without looking.');
+    return;
+  }
+  lastSpokenLine = speechLineIdx;
+  const line = LINES[speechLineIdx];
+  highlightLine(speechLineIdx);
+  setSubtitle(line);
+  speakText(line, () => {
+    speechLineIdx++;
+    setTimeout(speakPoemLine, 450);
+  });
+}
+
+function startPoemAudio() {
+  poemSpeaking = true;
+  speechLineIdx = 0;
+  document.getElementById('pause-speech-btn').textContent = 'Pause';
+  speakPoemLine();
+}
+
+function toggleSpeechPause() {
+  if(!supportsSpeech()) return;
+  if(!window.speechSynthesis.speaking) {
+    setSubtitle('Start Listen first.');
+    return;
+  }
+  const btn = document.getElementById('pause-speech-btn');
+  if(window.speechSynthesis.paused) {
+    window.speechSynthesis.resume();
+    btn.textContent = 'Pause';
+  } else {
+    window.speechSynthesis.pause();
+    btn.textContent = 'Resume';
+  }
+}
+
+function repeatSpeechLine() {
+  poemSpeaking = false;
+  const lineIndex = Math.min(lastSpokenLine, LINES.length - 1);
+  highlightLine(lineIndex);
+  setSubtitle(LINES[lineIndex]);
+  speakText(LINES[lineIndex]);
+}
+
+function stopSpeech(message = 'Stopped. Choose Listen when you are ready.') {
+  poemSpeaking = false;
+  speechToken++;
+  if(supportsSpeech()) window.speechSynthesis.cancel();
+  clearLineHighlight();
+  setSubtitle(message);
+  document.getElementById('pause-speech-btn').textContent = 'Pause';
 }
 
 // ---- FLASHCARD ----
@@ -745,9 +931,7 @@ function showCard() {
   const line = queue[cardIdx % queue.length];
   const unit = recallOrder === 'sequential' ? 'lines' : 'cards';
   document.getElementById('card-prog-txt').textContent = `${(cardIdx%queue.length)+1} / ${queue.length} ${unit}`;
-  document.getElementById('recall-help').textContent = recallOrder === 'sequential'
-    ? 'Sequential mode keeps the poem in order. Use Adaptive later for weak lines.'
-    : 'Adaptive mode brings lines marked Again back sooner.';
+  document.getElementById('recall-help').textContent = getRecallHelpText();
   document.getElementById('back-text').innerHTML = esc(line);
   flipped = false;
   document.getElementById('card-scene').classList.remove('flipped');
@@ -764,9 +948,27 @@ function showCard() {
   }
 }
 
+function getRecallHelpText() {
+  return recallOrder === 'sequential'
+    ? 'Sequential mode keeps the poem in order. Use Adaptive later for weak lines.'
+    : 'Adaptive mode brings lines marked Again back sooner.';
+}
+
 function flipCard() {
   flipped = !flipped;
   document.getElementById('card-scene').classList.toggle('flipped', flipped);
+}
+
+function speakCurrentCard() {
+  poemSpeaking = false;
+  clearLineHighlight();
+  const line = queue[cardIdx % queue.length];
+  document.getElementById('card-scene').classList.add('listening');
+  document.getElementById('recall-help').textContent = `Listening: ${line}`;
+  setSubtitle(line);
+  speakText(line, () => {
+    document.getElementById('recall-help').textContent = getRecallHelpText();
+  });
 }
 
 function nextCard() { cardIdx++; showCard(); sessions++; }
@@ -864,6 +1066,7 @@ function renderStats() {
 }
 
 // init
+setupPoemLineData();
 renderStats();
 buildQueue();
 </script>
