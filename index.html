@@ -425,6 +425,30 @@
   .quiz-feedback.ok { color: var(--green); }
   .quiz-feedback.no { color: var(--danger); }
 
+  /* Weak lines */
+  .weak-list {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .weak-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+  }
+  .weak-line {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.35rem, 3.4vw, 2rem);
+    line-height: 1.25;
+    color: var(--text);
+    margin-bottom: 0.45rem;
+  }
+  .weak-meta {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
   /* Stats */
   .stats-grid {
     display: grid;
@@ -479,45 +503,6 @@
   }
   .prog-num { font-size: 12px; color: var(--muted); min-width: 28px; text-align: right; }
 
-  /* Methods */
-  .methods-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 1.5rem;
-  }
-  .method-box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.2rem;
-  }
-  .method-num { font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; line-height: 1; color: var(--accent); margin-bottom: 10px; }
-  .method-title { font-size: 1rem; font-weight: 500; color: var(--text); margin-bottom: 6px; }
-  .method-desc { font-size: 0.94rem; color: var(--muted); line-height: 1.55; }
-
-  .plan-box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.5rem;
-  }
-  .plan-box h3 {
-    font-size: 0.82rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 1rem;
-  }
-  .plan-row {
-    display: flex;
-    gap: 14px;
-    margin-bottom: 10px;
-    font-size: 0.96rem;
-  }
-  .plan-time { color: var(--accent); min-width: 86px; font-weight: 500; }
-  .plan-text { color: var(--muted); line-height: 1.5; }
-
   /* Empty state */
   .memory-frame {
     background: var(--surface);
@@ -553,7 +538,6 @@
     .app { padding: 1.25rem 0.85rem 3rem; }
     .header h1 { font-size: clamp(2.75rem, 15vw, 4rem); }
     .header .subtitle { font-size: 1rem; max-width: 21rem; }
-    .methods-grid { grid-template-columns: 1fr; }
     .tab-bar { display: grid; grid-template-columns: 1fr; gap: 3px; width: 100%; }
     .tab { min-width: 0; width: 100%; }
     .stanza { padding: 1.25rem; }
@@ -562,10 +546,9 @@
     .listen-panel,
     .memory-frame,
     .quiz-card,
+    .weak-item,
     .card-scene,
     .cloze-card,
-    .plan-box,
-    .method-box,
     .stat-box { width: 100%; max-width: 100%; min-width: 0; }
     .card-actions { flex-direction: column; }
     .card-actions .btn { width: 100%; }
@@ -593,8 +576,8 @@
     <button class="tab" onclick="switchTab('flash')">Recall</button>
     <button class="tab" onclick="switchTab('cloze')">Cloze</button>
     <button class="tab" onclick="switchTab('quiz')">Quiz</button>
+    <button class="tab" onclick="switchTab('weak')">Weak Lines</button>
     <button class="tab" onclick="switchTab('stats')">Progress</button>
-    <button class="tab" onclick="switchTab('methods')">Method</button>
   </div>
 
   <!-- POEM TAB -->
@@ -668,9 +651,9 @@
       <div class="mode-group">
         <div class="mode-label">Prompt</div>
         <div class="mode-pills">
-          <button class="mode-pill active" id="mpill-show" onclick="setMode('show')">Read</button>
-          <button class="mode-pill" id="mpill-blank" onclick="setMode('blank')">Key words</button>
+          <button class="mode-pill active" id="mpill-blank" onclick="setMode('blank')">Key words</button>
           <button class="mode-pill" id="mpill-hide" onclick="setMode('hide')">Full recall</button>
+          <button class="mode-pill" id="mpill-show" onclick="setMode('show')">Read</button>
         </div>
       </div>
     </div>
@@ -714,7 +697,7 @@
     <div class="quiz-card">
       <div class="quiz-top">
         <span class="quiz-type" id="quiz-type">Context</span>
-        <span id="quiz-count">1 / 1</span>
+        <span><span id="quiz-count">1 / 1</span> · <span id="quiz-score">0 / 0 correct</span></span>
       </div>
       <div class="quiz-context" id="quiz-context"></div>
       <div class="quiz-question" id="quiz-question"></div>
@@ -729,6 +712,20 @@
     <p class="helper-text" style="text-align:left;">Use the context to recall exact wording, speaker, image, or meaning.</p>
   </div>
 
+  <!-- WEAK LINES TAB -->
+  <div id="sec-weak" class="section">
+    <div class="memory-frame" style="margin-bottom:1rem;">
+      <strong>Final Review</strong>
+      These are the lines you marked Again. Use this page for the last 10 minutes before the exam.
+    </div>
+    <div class="cloze-controls" style="margin-bottom:1rem;">
+      <button class="btn primary" onclick="copyWeakLines()">Copy weak lines</button>
+      <button class="btn" onclick="resetProgress()">Reset progress</button>
+    </div>
+    <div class="feedback-line" id="weak-feedback"></div>
+    <div class="weak-list" id="weak-list"></div>
+  </div>
+
   <!-- STATS TAB -->
   <div id="sec-stats" class="section">
     <div class="stats-grid">
@@ -740,40 +737,6 @@
     <div class="progress-section">
       <h3>Line Strength</h3>
       <div id="prog-list"></div>
-    </div>
-  </div>
-
-  <!-- METHODS TAB -->
-  <div id="sec-methods" class="section">
-    <div class="methods-grid">
-      <div class="method-box">
-        <div class="method-num">01</div>
-        <div class="method-title">Spaced repetition</div>
-        <div class="method-desc">Hard lines appear more often. Secure lines appear less often, so time goes where it matters.</div>
-      </div>
-      <div class="method-box">
-        <div class="method-num">02</div>
-        <div class="method-title">Active recall</div>
-        <div class="method-desc">Cover the line and retrieve it from memory. Testing beats rereading when time is short.</div>
-      </div>
-      <div class="method-box">
-        <div class="method-num">03</div>
-        <div class="method-title">Cloze practice</div>
-        <div class="method-desc">Missing key words forces exact wording, which is what poetry answers often need.</div>
-      </div>
-      <div class="method-box">
-        <div class="method-num">04</div>
-        <div class="method-title">Sleep consolidation</div>
-        <div class="method-desc">Do one final recall before bed. Sleep helps stabilise the lines you have practised.</div>
-      </div>
-    </div>
-    <div class="plan-box">
-      <h3>One-Day Exam Plan</h3>
-      <div class="plan-row"><span class="plan-time">Round 1</span><span class="plan-text">Read the poem and learn the repeated colour pattern.</span></div>
-      <div class="plan-row"><span class="plan-time">Round 2</span><span class="plan-text">Use Key words mode. Mark weak lines as Again.</span></div>
-      <div class="plan-row"><span class="plan-time">Round 3</span><span class="plan-text">Use Cloze mode until the exact wording feels automatic.</span></div>
-      <div class="plan-row"><span class="plan-time">Bedtime</span><span class="plan-text">Use Full recall mode once, line by line, without looking.</span></div>
-      <div class="plan-row"><span class="plan-time">Morning</span><span class="plan-text">Review only the lines that were marked Again.</span></div>
     </div>
   </div>
 
@@ -873,7 +836,7 @@ const QUIZ_ITEMS = [
 let scores = {};
 let queue = [];
 let cardIdx = 0;
-let cardMode = 'show';
+let cardMode = 'blank';
 let recallOrder = 'sequential';
 let flipped = false;
 let sessions = 0;
@@ -882,6 +845,8 @@ let clozeData = [];
 let clozeCorrect = 0, clozeTotal = 0;
 let quizIdx = 0;
 let quizOrder = [];
+let quizCorrect = 0, quizTried = 0;
+let quizAnswered = false;
 let speechRate = 0.86;
 let selectedVoiceURI = '';
 let speechLineIdx = 0;
@@ -900,13 +865,14 @@ function saveScores() {
 }
 
 function switchTab(name) {
-  const tabs = ['poem','flash','cloze','quiz','stats','methods'];
+  const tabs = ['poem','flash','cloze','quiz','weak','stats'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===name));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-'+name).classList.add('active');
   if(name==='flash') initFlash();
   if(name==='cloze') initCloze();
   if(name==='quiz') initQuiz();
+  if(name==='weak') renderWeakLines();
   if(name==='stats') renderStats();
 }
 
@@ -1183,6 +1149,7 @@ function rate(r) {
   cardIdx++;
   showCard();
   renderStats();
+  renderWeakLines();
 }
 
 // ---- CLOZE ----
@@ -1277,11 +1244,13 @@ function renderQuiz() {
   const item = currentQuiz();
   document.getElementById('quiz-type').textContent = item.type;
   document.getElementById('quiz-count').textContent = `${(quizIdx % quizOrder.length) + 1} / ${quizOrder.length}`;
+  document.getElementById('quiz-score').textContent = `${quizCorrect} / ${quizTried} correct`;
   document.getElementById('quiz-context').textContent = item.context;
   document.getElementById('quiz-question').textContent = item.question;
   const input = document.getElementById('quiz-answer');
   input.value = '';
   input.className = 'quiz-input';
+  quizAnswered = false;
   document.getElementById('quiz-feedback').className = 'quiz-feedback';
   document.getElementById('quiz-feedback').textContent = '';
   input.onkeydown = e => { if(e.key === 'Enter') checkQuiz(); };
@@ -1298,6 +1267,12 @@ function checkQuiz() {
     fb.className = 'quiz-feedback no';
     fb.textContent = 'Type an answer first.';
     return;
+  }
+  if(!quizAnswered) {
+    quizTried++;
+    if(ok) quizCorrect++;
+    quizAnswered = true;
+    document.getElementById('quiz-score').textContent = `${quizCorrect} / ${quizTried} correct`;
   }
   if(ok) {
     fb.className = 'quiz-feedback ok';
@@ -1320,6 +1295,60 @@ function nextQuiz() {
   quizIdx++;
   if(quizIdx % QUIZ_ITEMS.length === 0) shuffleQuiz();
   renderQuiz();
+}
+
+// ---- WEAK LINES ----
+function getWeakLines() {
+  return LINES
+    .filter(l => scores[l] && scores[l].hard > 0)
+    .sort((a, b) => scores[b].hard - scores[a].hard);
+}
+
+function renderWeakLines() {
+  const list = document.getElementById('weak-list');
+  if(!list) return;
+  const weak = getWeakLines();
+  if(!weak.length) {
+    list.innerHTML = '<div class="empty">No weak lines yet. Mark difficult cards as Again.</div>';
+    return;
+  }
+  list.innerHTML = weak.map(line => {
+    const s = scores[line];
+    return `<div class="weak-item">
+      <div class="weak-line">${esc(line)}</div>
+      <div class="weak-meta">Again ${s.hard} · Got it ${s.easy}</div>
+    </div>`;
+  }).join('');
+}
+
+async function copyWeakLines() {
+  const weak = getWeakLines();
+  const fb = document.getElementById('weak-feedback');
+  if(!weak.length) {
+    fb.textContent = 'No weak lines to copy yet.';
+    return;
+  }
+  const text = weak.join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    fb.textContent = 'Weak lines copied.';
+  } catch(e) {
+    fb.textContent = text;
+  }
+}
+
+function resetProgress() {
+  LINES.forEach(l => { scores[l] = {easy:0,hard:0}; });
+  sessions = 0;
+  clozeCorrect = 0;
+  clozeTotal = 0;
+  quizCorrect = 0;
+  quizTried = 0;
+  saveScores();
+  buildQueue();
+  renderStats();
+  renderWeakLines();
+  document.getElementById('weak-feedback').textContent = 'Progress reset.';
 }
 
 // ---- STATS ----
