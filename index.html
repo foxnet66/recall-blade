@@ -185,9 +185,26 @@
     font-size: 0.92rem;
     color: var(--muted);
   }
+  .recall-controls {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 1rem;
+  }
   .mode-pills {
     display: flex;
     gap: 4px;
+  }
+  .mode-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .mode-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
   .mode-pill {
     padding: 8px 12px;
@@ -452,6 +469,8 @@
     .stat-box { width: 100%; max-width: 100%; min-width: 0; }
     .card-actions { flex-direction: column; }
     .card-actions .btn { width: 100%; }
+    .recall-controls { flex-direction: column; }
+    .mode-pills { flex-wrap: wrap; }
   }
 </style>
 </head>
@@ -519,10 +538,22 @@
   <div id="sec-flash" class="section">
     <div class="card-progress-row">
       <span id="card-prog-txt">- / - cards</span>
-      <div class="mode-pills">
-        <button class="mode-pill active" id="mpill-show" onclick="setMode('show')">Read</button>
-        <button class="mode-pill" id="mpill-blank" onclick="setMode('blank')">Key words</button>
-        <button class="mode-pill" id="mpill-hide" onclick="setMode('hide')">Full recall</button>
+    </div>
+    <div class="recall-controls">
+      <div class="mode-group">
+        <div class="mode-label">Order</div>
+        <div class="mode-pills">
+          <button class="mode-pill active" id="opill-sequential" onclick="setRecallOrder('sequential')">Sequential</button>
+          <button class="mode-pill" id="opill-adaptive" onclick="setRecallOrder('adaptive')">Adaptive</button>
+        </div>
+      </div>
+      <div class="mode-group">
+        <div class="mode-label">Prompt</div>
+        <div class="mode-pills">
+          <button class="mode-pill active" id="mpill-show" onclick="setMode('show')">Read</button>
+          <button class="mode-pill" id="mpill-blank" onclick="setMode('blank')">Key words</button>
+          <button class="mode-pill" id="mpill-hide" onclick="setMode('hide')">Full recall</button>
+        </div>
       </div>
     </div>
     <div class="card-scene" id="card-scene" onclick="flipCard()">
@@ -542,7 +573,7 @@
       <button class="btn" onclick="nextCard()">Skip</button>
       <button class="btn easy" onclick="rate('easy')">Got it</button>
     </div>
-    <p class="helper-text">Lines marked Again come back sooner.</p>
+    <p class="helper-text" id="recall-help">Sequential mode keeps the poem in order. Use Adaptive later for weak lines.</p>
   </div>
 
   <!-- CLOZE TAB -->
@@ -631,6 +662,7 @@ let scores = {};
 let queue = [];
 let cardIdx = 0;
 let cardMode = 'show';
+let recallOrder = 'sequential';
 let flipped = false;
 let sessions = 0;
 let clozeIdx = 0;
@@ -660,6 +692,11 @@ function switchTab(name) {
 // ---- FLASHCARD ----
 function buildQueue() {
   queue = [];
+  if(recallOrder === 'sequential') {
+    queue = [...LINES];
+    return;
+  }
+
   LINES.forEach(l => {
     const s = scores[l];
     const times = s.hard > 0 ? 3 : (s.easy === 0 ? 2 : 1);
@@ -672,7 +709,15 @@ function buildQueue() {
 }
 
 function initFlash() {
-  if(!queue.length) buildQueue();
+  buildQueue();
+  cardIdx = 0;
+  showCard();
+}
+
+function setRecallOrder(order) {
+  recallOrder = order;
+  ['sequential','adaptive'].forEach(x => document.getElementById('opill-'+x).classList.toggle('active', x===order));
+  buildQueue();
   cardIdx = 0;
   showCard();
 }
@@ -698,7 +743,11 @@ function blankify(line) {
 function showCard() {
   if(!queue.length) { buildQueue(); }
   const line = queue[cardIdx % queue.length];
-  document.getElementById('card-prog-txt').textContent = `${(cardIdx%queue.length)+1} / ${queue.length} cards`;
+  const unit = recallOrder === 'sequential' ? 'lines' : 'cards';
+  document.getElementById('card-prog-txt').textContent = `${(cardIdx%queue.length)+1} / ${queue.length} ${unit}`;
+  document.getElementById('recall-help').textContent = recallOrder === 'sequential'
+    ? 'Sequential mode keeps the poem in order. Use Adaptive later for weak lines.'
+    : 'Adaptive mode brings lines marked Again back sooner.';
   document.getElementById('back-text').innerHTML = esc(line);
   flipped = false;
   document.getElementById('card-scene').classList.remove('flipped');
@@ -727,7 +776,7 @@ function rate(r) {
   scores[line][r]++;
   saveScores();
   sessions++;
-  buildQueue();
+  if(recallOrder === 'adaptive') buildQueue();
   cardIdx++;
   showCard();
   renderStats();
