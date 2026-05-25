@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Poetry Memory Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f0e;
+    --surface: #141614;
+    --surface2: #1a1d1a;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8ebe6;
+    --muted: #7a8276;
+    --faint: #3a3e38;
+    --green: #4a9e6b;
+    --green-pale: #c8f0d8;
+    --yellow: #c9a84c;
+    --yellow-pale: #f5e9c0;
+    --blue: #4a7fb5;
+    --blue-pale: #c0d8f5;
+    --accent: #8fb89a;
+    --accent2: #6a9e7a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(74,158,107,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 80% 80%, rgba(74,127,181,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 70% 20%, rgba(201,168,76,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding-top: 1rem;
+  }
+  .header .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+  .header h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 300;
+    font-style: italic;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+  }
+  .header .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  /* Color dots decoration */
+  .color-dots {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 1.5rem 0;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+  .dot.g { background: var(--green); }
+  .dot.y { background: var(--yellow); }
+  .dot.b { background: var(--blue); }
+
+  /* Tab bar */
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 4px;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .tab {
+    flex: 1;
+    min-width: 80px;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .tab.active {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border2);
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* Section */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* Poem display */
+  .poem-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .stanza {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+  .stanza:last-child { border-bottom: none; }
+  .stanza-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+  .stanza.green .stanza-label { color: var(--green); }
+  .stanza.yellow .stanza-label { color: var(--yellow); }
+  .stanza.blue .stanza-label { color: var(--blue); }
+  .stanza.intro .stanza-label { color: var(--muted); }
+  .stanza-line {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.05rem;
+    line-height: 1.9;
+    color: var(--text);
+  }
+  .stanza-line em {
+    font-style: italic;
+    opacity: 0.7;
+  }
+
+  /* Flashcard */
+  .card-progress-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .mode-pills {
+    display: flex;
+    gap: 4px;
+  }
+  .mode-pill {
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+  }
+  .mode-pill.active {
+    background: var(--surface2);
+    border-color: var(--border2);
+    color: var(--text);
+  }
+
+  .card-scene { perspective: 1200px; height: 220px; margin-bottom: 1.5rem; cursor: pointer; }
+  .card-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.55s cubic-bezier(0.4,0,0.2,1); }
+  .card-scene.flipped .card-inner { transform: rotateY(180deg); }
+  .card-face {
+    position: absolute; inset: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 2rem;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .card-back {
+    transform: rotateY(180deg);
+    background: var(--surface2);
+    border-color: var(--border2);
+  }
+  .card-hint {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  .card-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.3rem;
+    font-weight: 300;
+    text-align: center;
+    line-height: 1.8;
+    color: var(--text);
+  }
+  .blank-word {
+    display: inline-block;
+    border-bottom: 1.5px solid var(--blue);
+    color: var(--blue-pale);
+    min-width: 50px;
+    text-align: center;
+    margin: 0 2px;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+  .btn {
+    padding: 10px 22px;
+    border-radius: 10px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .btn:hover { background: var(--surface2); }
+  .btn.hard { border-color: rgba(180,80,80,0.4); color: #e08080; }
+  .btn.hard:hover { background: rgba(180,80,80,0.1); }
+  .btn.easy { border-color: rgba(74,158,107,0.4); color: var(--green-pale); }
+  .btn.easy:hover { background: rgba(74,158,107,0.1); }
+  .btn.primary { background: var(--surface2); border-color: var(--border2); }
+
+  /* Cloze */
+  .cloze-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 1rem;
+  }
+  .cloze-line {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.2rem;
+    line-height: 2.2;
+    color: var(--text);
+  }
+  .cloze-inp {
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px solid var(--blue);
+    color: var(--blue-pale);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.2rem;
+    text-align: center;
+    outline: none;
+    padding: 0 4px;
+    min-width: 70px;
+    transition: border-color 0.2s;
+  }
+  .cloze-inp.ok { border-color: var(--green); color: var(--green-pale); }
+  .cloze-inp.no { border-color: #e08080; color: #f0b0b0; }
+  .feedback-line {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 1rem;
+    min-height: 20px;
+  }
+  .cloze-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px,1fr));
+    gap: 12px;
+    margin-bottom: 2rem;
+  }
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+  }
+  .stat-box .lbl { font-size: 11px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 6px; }
+  .stat-box .val { font-size: 2rem; font-weight: 300; font-family: 'Cormorant Garamond', serif; color: var(--text); }
+
+  .progress-section h3 {
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  .prog-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .prog-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px;
+    color: var(--text);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .prog-bar-bg {
+    width: 90px;
+    height: 3px;
+    background: var(--faint);
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .prog-bar-fill {
+    height: 100%;
+    background: var(--accent2);
+    border-radius: 2px;
+    transition: width 0.5s;
+  }
+  .prog-num { font-size: 12px; color: var(--muted); min-width: 28px; text-align: right; }
+
+  /* Methods */
+  .methods-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .method-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.2rem;
+  }
+  .method-icon { font-size: 1.4rem; margin-bottom: 8px; }
+  .method-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+  .method-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  .plan-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+  }
+  .plan-box h3 {
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+  .plan-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .plan-time { color: var(--accent); min-width: 50px; font-weight: 500; }
+  .plan-text { color: var(--muted); line-height: 1.5; }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 3rem; color: var(--muted); font-size: 14px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 3px; }
+
+  @media (max-width: 520px) {
+    .methods-grid { grid-template-columns: 1fr; }
+    .card-text { font-size: 1.1rem; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="eyebrow">Poetry Memory Trainer</div>
+    <h1>They say that instead<br>of a brush</h1>
+    <div class="color-dots">
+      <div class="dot g"></div>
+      <div class="dot y"></div>
+      <div class="dot b"></div>
+    </div>
+    <div class="subtitle">间隔重复 · 主动回忆 · 填空测试 — 明天考试前完全掌握</div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('poem')">📜 诗句</button>
+    <button class="tab" onclick="switchTab('flash')">🃏 闪卡</button>
+    <button class="tab" onclick="switchTab('cloze')">✏️ 填空</button>
+    <button class="tab" onclick="switchTab('stats')">📊 进度</button>
+    <button class="tab" onclick="switchTab('methods')">💡 技巧</button>
+  </div>
+
+  <!-- POEM TAB -->
+  <div id="sec-poem" class="section active">
+    <div class="poem-container">
+      <div class="stanza intro">
+        <div class="stanza-label">引言</div>
+        <div class="stanza-line">They say that instead of a brush</div>
+        <div class="stanza-line">he used a knife on me—</div>
+        <div class="stanza-line">a savage geometry.</div>
+      </div>
+      <div class="stanza green">
+        <div class="stanza-label">绿 · Green</div>
+        <div class="stanza-line">Green knows me—</div>
+        <div class="stanza-line"><em>Not the green of new shoots,</em></div>
+        <div class="stanza-line"><em>But the ghastly green of gangrene.</em></div>
+      </div>
+      <div class="stanza yellow">
+        <div class="stanza-label">黄 · Yellow</div>
+        <div class="stanza-line">Yellow knows me—</div>
+        <div class="stanza-line"><em>Not the cheery yellow of the sun</em></div>
+        <div class="stanza-line"><em>but the sickly hues</em></div>
+        <div class="stanza-line"><em>of this war's putrefaction.</em></div>
+      </div>
+      <div class="stanza blue">
+        <div class="stanza-label">蓝 · Blue</div>
+        <div class="stanza-line">Blue knows me—</div>
+        <div class="stanza-line"><em>Not the boundless blues of sky or sea</em></div>
+        <div class="stanza-line"><em>but the blues of the singer's</em></div>
+        <div class="stanza-line"><em>deepest sorrow.</em></div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.2rem 1.5rem;font-size:13px;color:var(--muted);line-height:1.8;">
+      <strong style="color:var(--accent);display:block;margin-bottom:6px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">记忆框架</strong>
+      每节结构相同：<span style="color:var(--text);">颜色 knows me</span> → 
+      <span style="color:var(--text);">Not the [正面意象]</span> → 
+      <span style="color:var(--text);">but the [战争/痛苦意象]</span>。
+      抓住这个对比结构，背起来事半功倍。
+    </div>
+  </div>
+
+  <!-- FLASHCARD TAB -->
+  <div id="sec-flash" class="section">
+    <div class="card-progress-row">
+      <span id="card-prog-txt">— / — 张</span>
+      <div class="mode-pills">
+        <button class="mode-pill active" id="mpill-show" onclick="setMode('show')">全显示</button>
+        <button class="mode-pill" id="mpill-blank" onclick="setMode('blank')">隐藏词</button>
+        <button class="mode-pill" id="mpill-hide" onclick="setMode('hide')">全隐藏</button>
+      </div>
+    </div>
+    <div class="card-scene" id="card-scene" onclick="flipCard()">
+      <div class="card-inner" id="card-inner">
+        <div class="card-face" id="card-front">
+          <div class="card-hint" id="front-hint">点击翻转</div>
+          <div class="card-text" id="front-text"></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="card-hint">完整诗句</div>
+          <div class="card-text" id="back-text"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button class="btn hard" onclick="rate('hard')">✗ 再练</button>
+      <button class="btn" onclick="nextCard()">→ 跳过</button>
+      <button class="btn easy" onclick="rate('easy')">✓ 记住了</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);text-align:center;">「再练」的句子会自动优先出现</p>
+  </div>
+
+  <!-- CLOZE TAB -->
+  <div id="sec-cloze" class="section">
+    <div class="cloze-card">
+      <div class="cloze-line" id="cloze-line"></div>
+      <div class="feedback-line" id="cloze-fb"></div>
+    </div>
+    <div class="cloze-controls" style="margin-bottom:1rem;">
+      <button class="btn primary" onclick="checkCloze()">✓ 检查</button>
+      <button class="btn" onclick="revealCloze()">显示答案</button>
+      <button class="btn" onclick="nextCloze()">→ 下一句</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);">填写蓝色横线处 · 大小写均可 · Enter 键检查</p>
+  </div>
+
+  <!-- STATS TAB -->
+  <div id="sec-stats" class="section">
+    <div class="stats-grid">
+      <div class="stat-box"><div class="lbl">总诗句</div><div class="val" id="st-total">0</div></div>
+      <div class="stat-box"><div class="lbl">已掌握</div><div class="val" id="st-known" style="color:var(--green);">0</div></div>
+      <div class="stat-box"><div class="lbl">练习轮次</div><div class="val" id="st-sess">0</div></div>
+      <div class="stat-box"><div class="lbl">填空正确率</div><div class="val" id="st-acc">—</div></div>
+    </div>
+    <div class="progress-section">
+      <h3>各句掌握程度</h3>
+      <div id="prog-list"></div>
+    </div>
+  </div>
+
+  <!-- METHODS TAB -->
+  <div id="sec-methods" class="section">
+    <div class="methods-grid">
+      <div class="method-box">
+        <div class="method-icon">🔁</div>
+        <div class="method-title">间隔重复</div>
+        <div class="method-desc">越难记的句子出现越频繁。标「再练」的排到队首，「记住了」的拉长间隔。</div>
+      </div>
+      <div class="method-box">
+        <div class="method-icon">🧠</div>
+        <div class="method-title">主动回忆</div>
+        <div class="method-desc">遮住答案，逼大脑自己检索。比反复阅读记忆效率高 5 倍（测试效应）。</div>
+      </div>
+      <div class="method-box">
+        <div class="method-icon">✏️</div>
+        <div class="method-title">填空测试</div>
+        <div class="method-desc">每做一次填空，记忆就加深一次。错误的地方就是最需要强化的地方。</div>
+      </div>
+      <div class="method-box">
+        <div class="method-icon">🌙</div>
+        <div class="method-title">睡眠巩固</div>
+        <div class="method-desc">睡前默想一遍全诗。睡眠期间大脑会把短期记忆转为长期记忆。</div>
+      </div>
+    </div>
+    <div class="plan-box">
+      <h3>考前一天计划</h3>
+      <div class="plan-row"><span class="plan-time">第1轮</span><span class="plan-text">「诗句」标签理解全诗结构与意象，理解≠记住</span></div>
+      <div class="plan-row"><span class="plan-time">第2轮</span><span class="plan-text">「隐藏词」闪卡快速过一遍，标出难点</span></div>
+      <div class="plan-row"><span class="plan-time">第3轮</span><span class="plan-text">「填空」重点攻克错误的句子，反复练</span></div>
+      <div class="plan-row"><span class="plan-time">睡前</span><span class="plan-text">「全隐藏」闪卡默想，一句一句在脑中过</span></div>
+      <div class="plan-row"><span class="plan-time">考前</span><span class="plan-text">再做一轮填空，只练标了「再练」的句子</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const LINES = [
+  "They say that instead of a brush",
+  "he used a knife on me—",
+  "a savage geometry.",
+  "Green knows me—",
+  "Not the green of new shoots,",
+  "But the ghastly green of gangrene.",
+  "Yellow knows me—",
+  "Not the cheery yellow of the sun",
+  "but the sickly hues",
+  "of this war's putrefaction.",
+  "Blue knows me—",
+  "Not the boundless blues of sky or sea",
+  "but the blues of the singer's",
+  "deepest sorrow."
+];
+
+let scores = {};
+let queue = [];
+let cardIdx = 0;
+let cardMode = 'show';
+let flipped = false;
+let sessions = 0;
+let clozeIdx = 0;
+let clozeData = [];
+let clozeCorrect = 0, clozeTotal = 0;
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Load scores from localStorage
+try { const s = localStorage.getItem('pm2_scores'); if(s) scores = JSON.parse(s); } catch(e){}
+LINES.forEach(l => { if(!scores[l]) scores[l] = {easy:0,hard:0}; });
+
+function saveScores() {
+  try { localStorage.setItem('pm2_scores', JSON.stringify(scores)); } catch(e){}
+}
+
+function switchTab(name) {
+  const tabs = ['poem','flash','cloze','stats','methods'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===name));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  if(name==='flash') initFlash();
+  if(name==='cloze') initCloze();
+  if(name==='stats') renderStats();
+}
+
+// ---- FLASHCARD ----
+function buildQueue() {
+  queue = [];
+  LINES.forEach(l => {
+    const s = scores[l];
+    const times = s.hard > 0 ? 3 : (s.easy === 0 ? 2 : 1);
+    for(let i=0;i<times;i++) queue.push(l);
+  });
+  for(let i=queue.length-1;i>0;i--) {
+    const j=Math.floor(Math.random()*(i+1));
+    [queue[i],queue[j]]=[queue[j],queue[i]];
+  }
+}
+
+function initFlash() {
+  if(!queue.length) buildQueue();
+  cardIdx = 0;
+  showCard();
+}
+
+function setMode(m) {
+  cardMode = m;
+  ['show','blank','hide'].forEach(x => document.getElementById('mpill-'+x).classList.toggle('active',x===m));
+  showCard();
+}
+
+function blankify(line) {
+  const words = line.split(' ');
+  const keyIdx = [];
+  words.forEach((w,i) => { if(w.replace(/[^a-zA-Z]/g,'').length > 4) keyIdx.push(i); });
+  const blank = keyIdx.filter((_,i)=>i%2===0);
+  return words.map((w,i) => {
+    if(!blank.includes(i)) return esc(w);
+    const len = Math.min(w.replace(/[^a-zA-Z]/g,'').length, 8);
+    return `<span class="blank-word">${'_'.repeat(len)}</span>`;
+  }).join(' ');
+}
+
+function showCard() {
+  if(!queue.length) { buildQueue(); }
+  const line = queue[cardIdx % queue.length];
+  document.getElementById('card-prog-txt').textContent = `${(cardIdx%queue.length)+1} / ${queue.length} 张`;
+  document.getElementById('back-text').innerHTML = esc(line);
+  flipped = false;
+  document.getElementById('card-scene').classList.remove('flipped');
+
+  if(cardMode==='show') {
+    document.getElementById('front-hint').textContent = '诗句';
+    document.getElementById('front-text').innerHTML = esc(line);
+  } else if(cardMode==='blank') {
+    document.getElementById('front-hint').textContent = '填写关键词 · 点击翻转';
+    document.getElementById('front-text').innerHTML = blankify(line);
+  } else {
+    document.getElementById('front-hint').textContent = '回忆这句 · 点击翻转';
+    document.getElementById('front-text').textContent = '？';
+  }
+}
+
+function flipCard() {
+  flipped = !flipped;
+  document.getElementById('card-scene').classList.toggle('flipped', flipped);
+}
+
+function nextCard() { cardIdx++; showCard(); sessions++; }
+
+function rate(r) {
+  const line = queue[cardIdx % queue.length];
+  scores[line][r]++;
+  saveScores();
+  sessions++;
+  buildQueue();
+  cardIdx++;
+  showCard();
+  renderStats();
+}
+
+// ---- CLOZE ----
+function initCloze() {
+  clozeIdx = Math.floor(Math.random()*LINES.length);
+  renderCloze();
+}
+
+function renderCloze() {
+  const line = LINES[clozeIdx % LINES.length];
+  clozeData = [];
+  const words = line.split(' ');
+  const keyIdx = [];
+  words.forEach((w,i) => { if(w.replace(/[^a-zA-Z]/g,'').length > 3) keyIdx.push(i); });
+  const blanks = keyIdx.filter((_,i)=>i%2===0).slice(0,3);
+
+  let html = words.map((w,i) => {
+    if(!blanks.includes(i)) return esc(w);
+    const clean = w.replace(/[^a-zA-Z]/g,'');
+    const trail = w.slice(clean.length);
+    const di = clozeData.length;
+    clozeData.push({ans: clean.toLowerCase(), trail});
+    return `<input class="cloze-inp" data-i="${di}" data-ans="${clean.toLowerCase()}" style="width:${Math.max(60,clean.length*13)}px" placeholder="${'_'.repeat(clean.length)}" autocomplete="off" spellcheck="false">${esc(trail)}`;
+  }).join(' ');
+
+  document.getElementById('cloze-line').innerHTML = html;
+  document.getElementById('cloze-fb').textContent = '';
+
+  document.querySelectorAll('.cloze-inp').forEach(inp => {
+    inp.addEventListener('keydown', e => { if(e.key==='Enter') checkCloze(); });
+  });
+}
+
+function checkCloze() {
+  const inputs = document.querySelectorAll('.cloze-inp');
+  if(!inputs.length) return;
+  let allOk = true, anyFilled = false;
+  inputs.forEach(inp => {
+    const val = inp.value.trim().toLowerCase();
+    if(val) { anyFilled = true; clozeTotal++; }
+    if(val === inp.dataset.ans) { inp.className='cloze-inp ok'; clozeCorrect++; }
+    else { inp.className='cloze-inp no'; allOk=false; }
+  });
+  if(!anyFilled) { document.getElementById('cloze-fb').textContent='请先填写答案'; return; }
+  document.getElementById('cloze-fb').textContent = allOk ? '✓ 全部正确！' : '✗ 有误 — 看答案后再试';
+  renderStats();
+}
+
+function revealCloze() {
+  document.querySelectorAll('.cloze-inp').forEach(inp => {
+    inp.value = inp.dataset.ans;
+    inp.className = 'cloze-inp ok';
+  });
+  document.getElementById('cloze-fb').textContent = '答案已显示';
+}
+
+function nextCloze() {
+  clozeIdx = Math.floor(Math.random()*LINES.length);
+  renderCloze();
+}
+
+// ---- STATS ----
+function renderStats() {
+  document.getElementById('st-total').textContent = LINES.length;
+  const known = LINES.filter(l => scores[l].easy >= 2).length;
+  document.getElementById('st-known').textContent = known;
+  document.getElementById('st-sess').textContent = sessions;
+  const acc = clozeTotal > 0 ? Math.round(clozeCorrect/clozeTotal*100)+'%' : '—';
+  document.getElementById('st-acc').textContent = acc;
+
+  const pl = document.getElementById('prog-list');
+  pl.innerHTML = LINES.map(l => {
+    const s = scores[l];
+    const pct = Math.min(100, s.easy*30 + s.hard*5);
+    const short = l.length>42 ? l.slice(0,42)+'…' : l;
+    return `<div class="prog-row">
+      <span class="prog-label" title="${esc(l)}">${esc(short)}</span>
+      <div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${pct}%"></div></div>
+      <span class="prog-num">${s.easy}✓</span>
+    </div>`;
+  }).join('');
+}
+
+// init
+renderStats();
+buildQueue();
+</script>
+</body>
+</html>
