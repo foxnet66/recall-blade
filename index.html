@@ -188,11 +188,18 @@
     overflow: hidden;
     margin-bottom: 1rem;
   }
-  .hide-test-line {
-    display: block;
+  .hide-test-row {
+    display: flex;
+    align-items: stretch;
     width: 100%;
     border: 0;
     border-bottom: 1px solid var(--border);
+    background: transparent;
+  }
+  .hide-test-row:last-child { border-bottom: 0; }
+  .hide-test-line {
+    flex: 1;
+    border: 0;
     background: transparent;
     color: var(--text);
     cursor: pointer;
@@ -203,11 +210,22 @@
     text-align: left;
     transition: opacity 1s ease, background 0.2s ease;
   }
-  .hide-test-line:last-child { border-bottom: 0; }
   .hide-test-line.hidden {
     opacity: 0;
     background: var(--surface2);
   }
+  .hide-listen-btn {
+    border: 0;
+    border-left: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    padding: 0 1rem;
+    min-width: 86px;
+  }
+  .hide-listen-btn:hover { background: var(--surface2); color: var(--text); }
 
   /* Listening */
   .listen-panel {
@@ -925,7 +943,10 @@ function renderHideTest() {
   const list = document.getElementById('hide-test-list');
   if(!list || list.dataset.ready === 'true') return;
   list.innerHTML = LINES.map((line, i) => (
-    `<button class="hide-test-line" type="button" data-i="${i}" onpointerenter="toggleHideTestLine(this)" onclick="toggleHideTestLine(this)">${esc(line)}</button>`
+    `<div class="hide-test-row">
+      <button class="hide-test-line" type="button" data-i="${i}" onpointerenter="toggleHideTestLine(this)">${esc(line)}</button>
+      <button class="hide-listen-btn" type="button" onclick="speakHideTestLine(${i})">Listen</button>
+    </div>`
   )).join('');
   list.dataset.ready = 'true';
 }
@@ -936,6 +957,12 @@ function toggleHideTestLine(el) {
 
 function resetHideTest() {
   document.querySelectorAll('.hide-test-line.hidden').forEach(el => el.classList.remove('hidden'));
+}
+
+function speakHideTestLine(index) {
+  poemSpeaking = false;
+  setSubtitle(LINES[index]);
+  speakText(LINES[index]);
 }
 
 // ---- LISTENING ----
